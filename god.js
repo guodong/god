@@ -53,12 +53,8 @@
 		view: '',
 		deps: [],
 		isLoaded: false,
-		load: function(id, callback){
-			if(god.loadedControllers[id] !== undefined){
-				return new god.loadedControllers[id];
-			}else{
-				
-			}			
+		load: function(id){
+			return new god.loadedControllers[id];		
 		},
 		setView: function(view){
 			this.view = view;
