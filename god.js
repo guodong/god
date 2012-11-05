@@ -7,10 +7,10 @@
  */
 (function(window){
 	var commentRegExp = /(\/\*([\s\S]*?)\*\/|([^:]|^)\/\/(.*)$)/mg,
-    cjsRequireRegExp = /[^.]\s*\.load\s*\(\s*["']([^'"\s]+)["']\s*\)/g,
 	loadModelRegExp = /[^.]\s*god\.model\.load\s*\(\s*["']([^'"\s]+)["']\s*\)/g;
 	var God = function(){
 		this.appPath = '';
+		this.appConfig = {};
 		this.loadedControllers = [];
 		this.loadedModels = [];
 		this.context = [];
@@ -31,7 +31,7 @@
 				if(god.context[controller_name].numScripts === 0){
 					task();
 				}
-			}
+			};
 			var url = this.appPath + 'controller/' + controller_name + '.js';
 			loadScript(url, controller_name, checkDone);
 		},
@@ -58,9 +58,8 @@
 		},
 		setView: function(view){
 			this.view = view;
-			alert("setview")
 		}
-	}
+	};
 	Controller.prototype.extend = function(id, obj){
 		var self = this;
 		function Ctrl(){
@@ -77,8 +76,10 @@
 			Ctrl.prototype[i] = obj[i];
 		}
 		for(var i in this.deps){
-			var url = god.appPath + 'model/' + this.deps[i] + '.js';
-			loadScript(url, id, god.context[id].callback);
+			if(undefined === god.loadedModels[this.deps[i]]){
+				var url = god.appPath + 'model/' + this.deps[i] + '.js';
+				loadScript(url, id, god.context[id].callback);
+			}
 		}
 		god.loadedControllers[id] = Ctrl;
 		return Ctrl;
@@ -87,11 +88,23 @@
 	
 	function Model(){}
 	Model.prototype = {
+		baseUrl: "",	//the url to fetch model data, used by fetch, save, delete...
 		defaults: {},
 		load: function(id){
 			return new god.loadedModels[id];
+		},
+		/**
+		 * fetch data from remote server, server response should be like:
+		 * {"name": "guodong", "age": 18, "isVip": true}
+		 * @param param the param transfred to server using Get Method
+		 */
+		fetch: function(param){
+			var data = Helper.load(this.baseUrl);
+			for(var i in data){
+				this.defaults[i] = data[i];
+			}
 		}
-	}
+	};
 	Model.prototype.extend = function(id, obj){
 		function Mdl(){
 			if(this.init) this.init();
@@ -102,9 +115,60 @@
 		}
 		god.loadedModels[id] = Mdl;
 		return Mdl;
+	};
+	
+	function View(){
+		this.template = "";
+		this.vars = [];
 	}
+	View.prototype = {
+		load: function(id){
+			var obj = new View();
+			var url = god.appPath + 'view/' + id + ".js";
+			var tpl = Helper.load(url);
+			obj.template = tpl;
+			return obj;
+		},
+		set: function(key, value){
+			this.vars[key] = value;
+		},
+		/**
+		 * render the view page and replace the <%=..%> with vars
+		 * @param dom the id of dom
+		 */
+		render: function(dom){
+			var self = this, viewVarsRegExp = /<%=\s*(.*)\s*%>/g;
+			this.template.replace(viewVarsRegExp, function (match, data) {
+				var str = "self.vars."+data;
+				var value = eval(str);
+				self.template = self.template.replace(match, value);
+			});
+			document.getElementById(dom).innerHTML = self.template;
+		}
+	};
+	
+	//here init the god object, and init the controller, model, view
 	var god = new God;
 	God.prototype.controller = new Controller;
 	God.prototype.model = new Model;
+	God.prototype.view = new View;
+	
+	var Helper = {
+		/**
+		 * just load content without executing it in sync way. Used for View templates
+		 * @param path
+		 */
+		load: function(path){
+			var xmlHttp;
+			if(window.XMLHttpRequest){
+				xmlHttp = new XMLHttpRequest();
+			}else{
+				xmlHttp = new ActiveXObject("Microsoft.XMLHTTP");
+			}
+			xmlHttp.open("GET", path, false);
+			xmlHttp.send();
+			return xmlHttp.responseText;
+		}
+	}
 	window.god = god;
 })(window);
