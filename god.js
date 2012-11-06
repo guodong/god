@@ -16,24 +16,49 @@
 		this.context = [];
 	};
 	God.prototype = {
+		/**
+		 * load the controller and execute the action, the context id is the controller name, the depended modules will
+		 * under the context namespace used for judging completement.
+		 * if one dep is loaded, the judge whether all deps is loaded, if all is loaded, execute the task callback
+		 * 
+		 * @param path
+		 * @param param
+		 */
 		use: function(path, param){
 			var self = this;
 			var arr = path.split('.'),
-				controller_name = arr[0],
+				controller_name = context = arr[0],
 				action_name = arr[1];
 			var task = function(){
 				var cls = new god.loadedControllers[controller_name];
 				var str ="cls."+action_name+"(param)";
 				eval(str);
 			};
-			this.context[controller_name] = {numScripts: 0, callback: task};
+			/*
+			 * if the controller is already loaded before, and the depended modules must be already loaded, just do the task and return
+			 */
+			if(undefined !== god.loadedControllers[controller_name]){
+				task();
+				return;
+			}
+			/*
+			 * initialize the loading context, modules under this context will be used by this controller
+			 */
+			this.context[context] = {numScripts: 0, callback: task};
+			/*
+			 * check if all depended modules are loaded, if loaded then do the task
+			 */
 			var checkDone = function(){
-				if(god.context[controller_name].numScripts === 0){
+				if(god.context[context].numScripts === 0){
 					task();
 				}
 			};
 			var url = this.appPath + 'controller/' + controller_name + '.js';
-			loadScript(url, controller_name, checkDone);
+			/*
+			 * load a module and decrease the number of depended scripts under context[controller_name]
+			 * once loaded, check if depended modules are already loaded
+			 */
+			loadScript(url, context, checkDone);
 		},
 		config: function(obj){
 			this.appPath = obj.appPath;
@@ -119,15 +144,14 @@
 	
 	function View(){
 		this.template = "";
+		this.templatePath = '';
 		this.vars = [];
 	}
 	View.prototype = {
+		id: null,
 		load: function(id){
-			var obj = new View();
-			var url = god.appPath + 'view/' + id + ".js";
-			var tpl = Helper.load(url);
-			obj.template = tpl;
-			return obj;
+			this.id = id;
+			return new god.loadedViews[id];
 		},
 		set: function(key, value){
 			this.vars[key] = value;
@@ -137,6 +161,9 @@
 		 * @param dom the id of dom
 		 */
 		render: function(dom){
+			if(this.templatePath === '') this.templatePath = this.id;
+			var url = god.appPath + 'view/template/' + this.templatePath + ".js";
+			this.template = Helper.load(url);
 			var self = this, viewVarsRegExp = /<%=\s*(.*)\s*%>/g;
 			this.template.replace(viewVarsRegExp, function (match, data) {
 				var str = "self.vars."+data;
@@ -146,6 +173,17 @@
 			document.getElementById(dom).innerHTML = self.template;
 		}
 	};
+	View.prototype.extend = function(id, obj){
+		function Vi(){
+			if(this.init) this.init();
+		}
+		Vi.prototype = new View;
+		for(var i in obj){
+			Vi.prototype[i] = obj[i];
+		}
+		god.loadedViews[id] = Vi;
+		return Vi;
+	}
 	
 	//here init the god object, and init the controller, model, view
 	var god = new God;
