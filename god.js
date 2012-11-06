@@ -94,7 +94,7 @@
 				var str = xmlHttp.responseText;
 				eval(str);
 				god.context[context].nScripts--; // decrease the needed module count
-				god.context[context].callback();
+				god.context[context].callback();	//once loaded a script, test the requiring context checkDone function
 			}
 		}
 		xmlHttp.open("GET", url, true);
@@ -175,21 +175,27 @@
 		baseUrl : "", // the url to fetch model data, used by fetch, save,
 		// delete...
 		defaults : {},
-		load : function(id) {
-			return new god.loadedModules.models[id];
+		load : function(model_name) {
+			return new god.loadedModules.models[model_name];
 		},
 		/**
 		 * fetch data from remote server, server response should be like:
 		 * {"name": "guodong", "age": 18, "isVip": true}
 		 * 
-		 * @param param
-		 *            the param transfred to server using Get Method
+		 * @param param the param transfred to server using Get Method
 		 */
 		fetch : function(param) {
-			var data = Helper.load(this.baseUrl);
-			for ( var i in data) {
-				this.defaults[i] = data[i];
+			var self = this, argstr = '?', t = [];
+			for(var i in param){
+				t[t.length] = i + '=' + param[i];
 			}
+			argstr += t.join('&');
+			var data = Helper.ajax({url: this.baseUrl+argstr, async: false}, function(data){
+				var d = JSON.parse(data);
+				for ( var i in d) {
+					self.defaults[i] = d[i];
+				}
+			});
 		}
 	};
 	Model.prototype.extend = function(id, obj) {
@@ -258,30 +264,44 @@
 	window.god = new God;
 
 	var Helper = {
-		/**
+		/*
 		 * just load content without executing it in sync way. Used for View
 		 * templates
-		 * 
-		 * @param path
 		 */
-		load : function(path, callback) {
+		load : function(path) {
+			return this.ajax({url: path, async: false});
+		},
+		
+		ajax: function(params, callback){
+			var url = params.url,
+				method = (params.method && params.method.toUpperCase() === "POST") || 'GET',
+				async = (params.async === false)? false: true;
 			var xmlHttp;
 			if (window.XMLHttpRequest) {
 				xmlHttp = new XMLHttpRequest();
 			} else {
 				xmlHttp = new ActiveXObject("Microsoft.XMLHTTP");
 			}
-			xmlHttp.open("GET", path, false);
-			xmlHttp.send();
-			if (callback) {
-				xmlHttp.onreadystatechange = function() {
+			xmlHttp.open(method, url, async);
+			xmlHttp.send(null);
+			if (undefined !== callback) {
+				if(async){
+					xmlHttp.onreadystatechange = function() {
+						if (xmlHttp.readyState == 4 && xmlHttp.status == 200) {
+							callback(xmlHttp.responseText);
+						}
+					}
+				}else{
 					if (xmlHttp.readyState == 4 && xmlHttp.status == 200) {
-						callback();
+						callback(xmlHttp.responseText);
 					}
 				}
+				
 			}
-
-			return xmlHttp.responseText;
+			// if it isn't sync, load and return the response
+			if(!async){
+				return xmlHttp.responseText;
+			}
 		}
 	}
 })(window);
