@@ -25,6 +25,9 @@
 	}
 	God.prototype = {
 		appPath : '',
+		/*
+		 * the modules that has been loaded
+		 */
 		loadedModules : {
 			controllers : [],
 			models : [],
@@ -38,28 +41,32 @@
 				var str = "cls." + action_name + "(param)";
 				eval(str);
 			};
-			var checkDone = function() {
-				if (god.context[controller_name].nScripts === 0) {
-					task();
+			if(undefined === god.loadedModules.controllers[controller_name]){
+				var checkDone = function() {
+					if (god.context[controller_name].nScripts === 0) {
+						task();
+					}
 				}
+				this.context[controller_name] = {
+					nScripts : 1,
+					callback : checkDone
+				};
+				this.require(controller_name);
+			} else {
+				task();
 			}
-			this.context[controller_name] = {
-				nScripts : 1,
-				callback : checkDone
-			};
-			this.require(controller_name, task);
+			
 			return this; // make chain
 		},
-		require : function(controller_name, callback) {
+		require : function(controller_name) {
 
-			loadScript(consts.CONTROLLER, controller_name, controller_name,
-					callback);
+			loadScript(consts.CONTROLLER, controller_name, controller_name);
 		},
 		config : function(obj) {
 			this.appPath = obj.appPath;
 		}
 	};
-	function loadScript(type, name, context, callback) {
+	function loadScript(type, name, context) {
 		var url;
 		switch (type) {
 		case consts.CONTROLLER:
@@ -86,8 +93,7 @@
 			if (xmlHttp.readyState == 4 && xmlHttp.status == 200) {
 				var str = xmlHttp.responseText;
 				eval(str);
-				god.context[context].nScripts--; // decrease the needed
-													// module count
+				god.context[context].nScripts--; // decrease the needed module count
 				god.context[context].callback();
 			}
 		}
@@ -200,12 +206,11 @@
 	};
 
 	function View() {
-		this.templatePath = '';
-		this.vars = [];
 	}
 	View.prototype = {
-		id : null,
 		template : '',
+		vars: [],
+		templatePath: '',
 		load : function(id) {
 			this.id = id;
 			return new god.loadedModules.views[id];
@@ -232,6 +237,7 @@
 				self.template = self.template.replace(match, value);
 			});
 			document.getElementById(dom).innerHTML = self.template;
+			if(this.initRander) this.initRander();
 		}
 	};
 	View.prototype.extend = function(id, obj) {
