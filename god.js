@@ -4,6 +4,14 @@
  * @author	guodong
  * @email	gd@tongjo.com
  * @see		https://github.com/tongjo/god
+ * 
+ * @notice when loading a script by adding script tag in head, the executing order is as follows:
+ * 1.the loadScript function that create tag in head, and attach callback to onload
+ * 2.execute script in loaded script, in godjs it will call the extend function, so it will execute the extend function,
+ *   and the extend function will register the loaded module to god, just like in loadedControllers array, at the same time, scan the 
+ *   depended modules like models and views, and added them to the loading context.
+ * 3.execute the callback binded in the first step. Typically, in godjs it will check the context's numScripts which is the unloaded but depended scripts's number
+ *   if it is zero, means that all deps is loaded, and call the callback function.
  */
 (function(window){
 	var commentRegExp = /(\/\*([\s\S]*?)\*\/|([^:]|^)\/\/(.*)$)/mg,
@@ -48,7 +56,7 @@
 			/*
 			 * check if all depended modules are loaded, if loaded then do the task
 			 */
-			var checkDone = function(){
+			var checkDone = function(){alert('2')
 				if(god.context[context].numScripts === 0){
 					task();
 				}
@@ -105,7 +113,7 @@
 				var url = god.appPath + 'model/' + this.deps[i] + '.js';
 				loadScript(url, id, god.context[id].callback);
 			}
-		}
+		}alert('1')
 		god.loadedControllers[id] = Ctrl;
 		return Ctrl;
 	};
