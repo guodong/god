@@ -7,9 +7,6 @@
  * 1. create context
  */
 (function(window) {
-	function isArray(o) {
-		return Object.prototype.toString.call(o) === '[object Array]';
-	}
 	function God() {
 	}
 	var contexts = {};
@@ -20,7 +17,7 @@
 			this.appPath = obj.appPath;
 		},
 		define : function(module_name, depends, content) {//alert("define:"+module_name)
-			if(!isArray(depends)){
+			if('[object Array]' !== Object.prototype.toString.call(depends)){
 				content = depends;
 				depends = [];
 			}
