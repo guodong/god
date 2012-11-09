@@ -19,13 +19,12 @@
 		config : function(obj) {
 			this.appPath = obj.appPath;
 		},
-		define : function(module_name, depends, content) {alert("define:"+module_name)
+		define : function(module_name, depends, content) {//alert("define:"+module_name)
 			if(!isArray(depends)){
 				content = depends;
 				depends = [];
 			}
-			function checkReady(){alert("checkReady && loaded:"+module_name);
-				this.module = module_name;
+			function checkReady(){//alert("checkReady && loaded:"+module_name);
 				var isReady = true;
 				for(var i in depends){
 					if(!contexts[depends[i]].isReady){
@@ -33,35 +32,48 @@
 						break;
 					}
 				}
-				if(isReady) {alert("isReady:"+module_name);
-					loadedModules[module_name] = content();
+				if(isReady) {//alert("isReady:"+module_name);
+					var args = [];
+					for(var i in depends){
+						args.push(loadedModules[depends[i]]);
+					}
+					loadedModules[module_name] = content.apply(window, args);
 					contexts[module_name].isReady = true;
 					for(var i in contexts[module_name].needed){
-						if(undefined !== loadedModules[contexts[module_name].needed[i].module]) continue;
+						if(undefined !== loadedModules[i]) continue;
 						contexts[module_name].needed[i]();
 					}
+					contexts[module_name].needed = [];
 				}else{
-					for(var i in depends){alert("register callback:"+module_name+" to "+depends[i]);
+					for(var i in depends){//alert("register callback:"+module_name+" to "+depends[i]);
 						contexts[depends[i]].needed[module_name] = checkReady;
 					}
 				}
 			}
-			contexts[module_name] = {isReady: false, callback: checkReady, needed: []};
+			if(undefined === contexts[module_name]){
+				contexts[module_name] = {isReady: false, callback: checkReady, needed: []};
+			}
+			
 			if(0 === depends.length){
 				checkReady();
 			}
 			for(var i in depends){
-				var url = god.appPath + depends[i] + '.js';
-				loadScript(url, checkReady);
+				if(undefined === contexts[depends[i]]){
+					var url = god.appPath + depends[i] + '.js';
+					loadScript(url, checkReady);
+				}else{
+					checkReady();
+				}
+				
 			}
 		},
 		require: function(depends, callback){
 			var d = new Date();
-			var tmp_module_name = d.getMilliseconds() + Math.random();
+			var tmp_module_name = d.getMilliseconds() + Math.random();//alert('rq:'+tmp_module_name);
 			return this.define(tmp_module_name, depends, callback);
 		}
 	};
-	function loadScript(url, callback){alert("create tag:"+url)
+	function loadScript(url, callback){//alert("create tag:"+url)
 		var head = document.getElementsByTagName('head')[0];
 		tag = document.createElement('script');
 		tag.type = 'text/javascript';
