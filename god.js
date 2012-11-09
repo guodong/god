@@ -57,33 +57,13 @@
 			}
 			for(var i in depends){
 				var url = god.appPath + depends[i] + '.js';
-				//rq(depends[i], checkReady);
 				loadScript(url, checkReady);
 			}
 		},
 		req: function(depends, callback){
-			function checkReady(){
-				var isReady = true;
-				for(var i in depends){
-					if(!contexts[depends[i]].isReady){
-						isReady = false;
-						break;
-					}
-				}
-				if(isReady) {
-					for(var i in contexts[depends[i]].callbacks){
-						contexts[depends[i]].callbacks[i]();
-					}
-				}
-			}
-			for(var i in depends){
-				contexts[depends[i]] = {isReady: false, callbacks: [checkReady]};
-				var url = this.appPath + depends[i] + '.js';
-				function completeLoad(){
-					
-				}
-				loadScript(url, function(){})
-			}
+			var d = new Date();
+			var tmp_module_name = d.getMilliseconds() + Math.random();
+			return this.define(tmp_module_name, depends, callback);
 		}
 	};
 	function loadScript(url, callback){alert("create tag:"+url)
