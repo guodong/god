@@ -19,11 +19,6 @@
 		config : function(obj) {
 			this.appPath = obj.appPath;
 		},
-		require : function(depends, callback) {
-			for(var i in depends){
-				
-			}
-		},
 		define : function(module_name, depends, content) {alert("define:"+module_name)
 			if(!isArray(depends)){
 				content = depends;
@@ -60,7 +55,7 @@
 				loadScript(url, checkReady);
 			}
 		},
-		req: function(depends, callback){
+		require: function(depends, callback){
 			var d = new Date();
 			var tmp_module_name = d.getMilliseconds() + Math.random();
 			return this.define(tmp_module_name, depends, callback);
@@ -80,36 +75,5 @@
 		tag.src = url;
 		head.appendChild(tag);
 	}
-	function Controller() {
-	}
-	Controller.prototype = {
-		view : '',
-		deps : {},
-		isLoaded : false,
-		/*
-		 * the load function is just return the registered module instance, the
-		 * depende issue is already sattled down by extend function
-		 */
-		load : function(id) {
-			return new god.loadedControllers[id];
-		},
-		setView : function(view) {
-			this.view = view;
-		}
-	};
-	Controller.prototype.define = function(controller_name, depends, obj) {
-		var self = this;
-		function Ctrl() {
-			if (this.init)
-				this.init();
-		}
-		Ctrl.prototype = new Controller;
-		for ( var i in obj) {
-			Ctrl.prototype[i] = obj[i];
-		}
-		god.define('controller/'+controller_name, depends, Ctrl);
-		return Ctrl;
-	};
-	God.prototype.controller = new Controller;
 	window.god = new God;
 })(window);
