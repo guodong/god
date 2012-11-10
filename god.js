@@ -1,8 +1,21 @@
 /**
- * the loading order is described as follows: 1. execute script in loading file
+ * Godjs: A module loader and a MVC javascript programming framework
+ * used for large and modularized web applications
+ * 
+ * @author	guodong
+ * @email	gd@tongjo.com
+ * @see		https://github.com/tongjo/god
+ * 
+ * @notice
+ * the loading order is described as follows: 
+ * 1. execute script in loading file
  * 2. execute callback such as onload callback and onreadystatechange callback
  * 
- * the register process is described as follows: 1. create context
+ * the register process is described as follows: 
+ * 1. create context
+ * 2. define the callback that check if module is ready
+ * 3. parse and load dependences and bind callbacks
+ * 4. register to god.modules
  */
 (function(window) {
 	function God() {
@@ -31,16 +44,17 @@
 		}
 		return ready;
 	}
-	var inArray = function(item, array){
+	var inArray = function(item, array) {
 		var isIn = false;
-		for(var i in array){
-			if(array[i] == item){
+		for ( var i in array) {
+			if (array[i] == item) {
 				isIn = true;
 				break;
 			}
 		}
 		return isIn;
 	};
+	var seq = 1;
 	God.prototype = {
 		appPath: '',
 		modules: [],
@@ -49,39 +63,55 @@
 		},
 		define: function(module_name, deps, content) {
 			alert("define:" + module_name)
-			var checkReady = function(){
-				
+			var checkReady = function() {
+
 			}
 			/*
 			 * the callback that check whether all dependences are ready, if
 			 * ready, execute the content and register to god.module
 			 */
-			var callback = function() {alert("callback:"+module_name+" deps:"+deps.join(' '));
-				//var content = content;
+			var callback = function() {
+				alert("callback:" + module_name + " deps:" + deps.join(' '));
+				// var content = content;
 				var isReady = true, self = this;
 				for ( var i in deps) {
-					if(undefined === god.modules[deps[i]]){alert("undef:"+deps[i])
+					// if depended module has not been defined, just break it.
+					// Because it will call this callback when this depended
+					// module finished
+					if (undefined === god.modules[deps[i]]) {// alert("undef:"+deps[i])
 						isReady = false;
 						break;
 					}
 					// if there is dependence not ready, register this callback
 					// to it, it will be executed once the dependence is ready
-					if (!god.modules[deps[i]].isReady) {alert("register "+ module_name + ' to ' +deps[i]);
-						if(!inArray(self, god.modules[deps[i].completeCallbacks])){
-							god.modules[deps[i]].completeCallbacks.push(callback);
-						}						
+					if (!god.modules[deps[i]].isReady) {
+						alert("register " + module_name + ' to ' + deps[i]);
+
+						// there exists this case: A rely on B,C and B rely on
+						// D, C rely on nothing, when define(A), once B loaded,
+						// this callback will be called, because B is not
+						// complete, it will register to B's completeCallbacks;
+						// But when C is loaded, this callback will be called
+						// second time, and it will be registered to B twice,
+						// thus making twice call when B is complete, so we use
+						// sequence number to controll it just be registered
+						// only once.
+						var _seq = god.modules[module_name].seq;
+						god.modules[deps[i]].completeCallbacks[_seq] = callback;
 						isReady = false;
 						break;
 					}
-				}alert('ready?:'+module_name+' '+isReady);
+				}
+				alert('ready?:' + module_name + ' ' + isReady);
 				if (isReady) {
 					god.modules[module_name].isReady = true;
 					var args = [];
-					for(var i in deps){
+					for ( var i in deps) {
 						args.push(god.modules[deps[i]].content);
 					}
-					god.modules[module_name].content = content.apply(window, args);
-					for(var i in god.modules[module_name].completeCallbacks){
+					god.modules[module_name].content = content.apply(window,
+							args);
+					for ( var i in god.modules[module_name].completeCallbacks) {
 						var t = god.modules[module_name].completeCallbacks[i];
 						t();
 					}
@@ -90,31 +120,39 @@
 			// register module to god.modules
 			if (undefined === god.modules[module_name]) {
 				god.modules[module_name] = {
+					seq: seq++, // the sequence number is used for registering
+					// completeCallback's index
 					isReady: false,
-					completeCallbacks: [],	// execute once all dependences are complete and content has been registered to god.modules
+					completeCallbacks: [], // execute once all dependences are
+					// complete and content has been
+					// registered to god.modules
 					content: null
 				};
 			}
-			
-			for(var i=0 in deps){//alert(god.modules[deps[i]])
-				if(undefined === god.modules[deps[i]]){
+
+			for ( var i = 0 in deps) {// alert(god.modules[deps[i]])
+				if (undefined === god.modules[deps[i]]) {
 					var url = god.appPath + deps[i] + '.js';
 					loadScript(url, callback);
-				}else{
+				} else {
 					god.modules[deps[i]].completeCallbacks.push(callback);
 				}
 			}
-			// if the module has no dependence, just call the callback and it will register the content to god.modules
-			if(0 === deps.length){
+			// if the module has no dependence, just call the callback and it
+			// will register the content to god.modules
+			if (0 === deps.length) {
 				callback();
 			}
 		},
 		require: function(depends, callback) {
 			var d = new Date();
-			var tmp_module_name = Math.random() * 100000000000000000;// alert('rq:'+tmp_module_name);
+			var tmp_module_name = seq++;// use the sequence number to make a
+										// private context index, just like the
+										// module name in define function.
 			return this.define(tmp_module_name, depends, callback);
 		}
 	};
+	window.god = new God;
 	function loadScript(url, callback) {// alert("create tag:"+url)
 		var head = document.getElementsByTagName('head')[0];
 		tag = document.createElement('script');
@@ -278,5 +316,4 @@
 			}
 		}
 	}
-	window.god = new God;
 })(window);
