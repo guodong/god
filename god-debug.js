@@ -76,11 +76,7 @@
 				}alert('ready?:'+module_name+' '+isReady);
 				if (isReady) {
 					god.modules[module_name].isReady = true;
-					var args = [];
-					for(var i in deps){
-						args.push(god.modules[deps[i]].content);
-					}
-					god.modules[module_name].content = content.apply(window, args);
+					god.modules[module_name].content = content();
 					for(var i in god.modules[module_name].completeCallbacks){
 						var t = god.modules[module_name].completeCallbacks[i];
 						t();
