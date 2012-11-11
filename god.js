@@ -6,13 +6,18 @@
  * @email gd@tongjo.com
  * @see https://github.com/tongjo/god
  * 
- * @notice the loading order is described as follows: 1. execute script in
- *         loading file 2. execute callback such as onload callback and
- *         onreadystatechange callback
+ * @notice the loading order is described as follows:
+ * 1. execute script in loading file 
+ * 2. execute callback such as onload callback and onreadystatechange callback
  * 
- * the register process is described as follows: 1. create context 2. define the
- * callback that check if module is ready 3. parse and load dependences and bind
- * callbacks 4. register to god.modules
+ * the register process is described as follows: 
+ * 1. create context 
+ * 2. define the callback that check if module is ready 
+ * 3. parse and load dependences and bind callbacks 
+ * 4. register to god.modules
+ * 
+ * @issues: there still exists some issues to be solved, here list them as follows:
+ * 1. the cycle dependence
  */
 (function(window) {
 	function God() {
@@ -151,6 +156,27 @@
 				content: null
 			};
 			return this.define(tmp_module_name, deps, callback);
+		},
+		/**
+		 * execute the controller's action, the arguments except first
+		 * one(controller name and action name) will be transfered to the action
+		 * For instance, god.exe('User.logout', {uid: 2});
+		 * 
+		 * @param action: the controller and action string
+		 *            eg: 'User.logout'
+		 * @returns {God} just for chain call
+		 */
+		exe: function(action){
+			var t = action.split('.'), controller_name = t[0], action_name = t[1];
+			var args = [];
+			for(var i=1 in arguments){
+				args.push(arguments[i]);
+			}
+			god.require(['controller/'+controller_name], function(ctrl){
+				var str = "ctrl." + action_name + ".call(window, args)";
+				eval(str);
+			});			
+			return this; // make chain
 		}
 	};
 	window.god = new God;
