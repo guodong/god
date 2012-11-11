@@ -17,25 +17,16 @@
  * 4. register to god.modules
  * 
  * @issues: there still exists some issues to be solved, here list them as follows:
- * 1. the cycle dependence
+ * 1. the cycle dependence, optional you can just use the god.exe method to call controller's action directly
  */
 (function(window) {
-	function God() {
-	}
-	var Module = function(id, callback) {
-		return this.load(id, callback);
-	};
-	Module.prototype = {
-		load: function(id, callback) {
-
-		}
-	};
-	/*
-	 * module_id: {isReady: bool, readyCallbacks: [], depsReadyCallback, {},
-	 * content: module_content}
+	/**
+	 * the global sequence number, used for require method to create a context like god.modules[3]
 	 */
-	// var contexts = {};
 	var seq = 1;
+	function God() {
+		
+	}
 	God.prototype = {
 		appPath: '',
 		modules: [],
@@ -204,7 +195,7 @@
 			views: []
 		},
 		isLoaded: false,
-		/*
+		/**
 		 * the load function is just return the registered module instance, the
 		 * depende issue is already sattled down by extend function
 		 */
@@ -238,8 +229,10 @@
 	function Model() {
 	}
 	Model.prototype = {
-		baseUrl: "", // the url to fetch model data, used by fetch, save,
-		// delete...
+		/**
+		 * the url to fetch model data, used by fetch, save, delete...
+		 */
+		baseUrl: "",
 		defaults: {},
 		load: function(model_name) {
 			return new god.loadedModules.models[model_name];
@@ -296,8 +289,7 @@
 		/**
 		 * render the view page and replace the <%=..%> with vars
 		 * 
-		 * @param dom
-		 *            the id of dom
+		 * @param dom: the id of dom
 		 */
 		render: function(dom) {
 			if (this.templatePath === '')
@@ -334,9 +326,10 @@
 	God.prototype.view = new View;
 
 	var Helper = {
-		/*
-		 * just load content without executing it in sync way. Used for View
-		 * templates
+		/**
+		 * just load content without executing it in sync way. Used for View  templates
+		 * 
+		 * @notice	this method only can be used for same domain loading, thus determine the View templates must be load under app domain
 		 */
 		load: function(path) {
 			return this.ajax({
@@ -371,7 +364,9 @@
 				}
 
 			}
-			// if it isn't sync, load and return the response
+			/**
+			 * if it isn't sync, load and return the response
+			 */
 			if (!async) {
 				return xmlHttp.responseText;
 			}
