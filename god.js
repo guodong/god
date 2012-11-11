@@ -46,7 +46,7 @@
 			var callback = function() {
 				// alert("callback:" + module_name + " deps:" + deps.join(' '));
 				// var content = content;
-				var isReady = true, self = this;
+				var isReady = true;
 				for ( var i in deps) {
 					// if depended module has not been defined, just break it.
 					// Because it will call this callback when this depended
@@ -75,57 +75,54 @@
 						break;
 					}
 				}
-				// alert('ready?:' + module_name + ' ' + isReady);
+				
 				if (isReady) {
-					god.modules[module_name].isReady = true;
+					var module = god.modules[module_name];
+					module.isReady = true;
 					var args = [];
 					for ( var i in deps) {
 						args.push(god.modules[deps[i]].content);
 					}
-					god.modules[module_name].content = content.apply(window,
-							args);
-					god.modules[module_name].isComplete = true;
-					for ( var i in god.modules[module_name].completeCallbacks) {
-						var t = god.modules[module_name].completeCallbacks[i];
-						t();
+					module.content = content.apply(window, args);
+					module.isComplete = true;
+					for ( var i in module.completeCallbacks) {
+						module.completeCallbacks[i]();
 					}
 				}
 			};
 			// register module to god.modules
-			if (undefined === god.modules[module_name]) {
-				god.modules[module_name] = {
-					seq: seq++, // the sequence number is used for registering
-					// completeCallback's index
-					isReady: false,
-					isComplete: false,
-					completeCallbacks: [], // execute once all dependences are
-					// complete and content has been
-					// registered to god.modules
-					content: null
-				};
-			}
+			/**
+			 * if (undefined === god.modules[module_name]) {
+			 * god.modules[module_name] = { seq: seq++, // the sequence number
+			 * is used for registering // completeCallback's index isReady:
+			 * false, isComplete: false, completeCallbacks: [], // execute once
+			 * all dependences are // complete and content has been //
+			 * registered to god.modules content: null }; }
+			 */
 
 			for ( var i = 0 in deps) {// alert(god.modules[deps[i]])
 				if (undefined === god.modules[deps[i]]) {
 					god.modules[deps[i]] = {
-						seq: seq++, // the sequence number is used for registering
+						seq: seq++, // the sequence number is used for
+									// registering
 						// completeCallback's index
 						isReady: false,
 						isComplete: false,
-						completeCallbacks: [], // execute once all dependences are
+						completeCallbacks: [], // execute once all dependences
+												// are
 						// complete and content has been
 						// registered to god.modules
 						content: null
 					};
 					var url = god.appPath + deps[i] + '.js';
 					loadScript(url, callback);
-				} else {//alert("loaded:"+deps[i])
-					//god.modules[deps[i]].completeCallbacks.push(callback);
+				} else {// alert("loaded:"+deps[i])
+					// god.modules[deps[i]].completeCallbacks.push(callback);
 					var _seq = god.modules[deps[i]].seq;
-					if(god.modules[deps[i]].isComplete){
+					if (god.modules[deps[i]].isComplete) {
 						callback();
-					}else{
-						god.modules[deps[i]].completeCallbacks[_seq] = callback;						
+					} else {
+						god.modules[deps[i]].completeCallbacks[_seq] = callback;
 					}
 				}
 			}
@@ -135,9 +132,9 @@
 				callback();
 			}
 		},
-		require: function(depends, callback) {
+		require: function(deps, callback) {
 			// var d = new Date();
-			
+
 			/**
 			 * use the sequence number to make a private context index, just
 			 * like the module name in define function.
@@ -153,7 +150,7 @@
 				// registered to god.modules
 				content: null
 			};
-			return this.define(tmp_module_name, depends, callback);
+			return this.define(tmp_module_name, deps, callback);
 		}
 	};
 	window.god = new God;
@@ -192,8 +189,24 @@
 			this.view = view;
 		}
 	};
-	Controller.prototype.define = function(controller_name, depends, content) {
-		return god.define(controller_name, depends, content);
+	Controller.prototype.extend = function(obj) {
+		/**
+		 * the initialize function will be called automatically
+		 */
+		function Ctrl() {
+			if (this.initialize){
+				this.initialize();
+			}
+				
+		}
+		Ctrl.prototype = new Controller;
+		/**
+		 * copy attribution from obj to Controller
+		 */
+		for ( var i in obj) {
+			Ctrl.prototype[i] = obj[i];
+		}
+		return new Ctrl;
 	};
 
 	function Model() {
@@ -229,8 +242,16 @@
 			});
 		}
 	};
-	Model.prototype.define = function(model_name, depends, content) {
-		return god.define(model_name, depends, content);
+	Model.prototype.extend = function(obj) {
+		function Mdl() {
+			if (this.init)
+				this.init();
+		}
+		Mdl.prototype = new Model;
+		for ( var i in obj) {
+			Mdl.prototype[i] = obj[i];
+		}
+		return Mdl;
 	};
 
 	function View() {
@@ -269,9 +290,19 @@
 				this.initRander();
 		}
 	};
-	View.prototype.define = function(view_name, depends, content) {
-		return god.define(view_name, depends, content);
+
+	View.prototype.extend = function(obj) {
+		function Vi() {
+			if (this.init)
+				this.init();
+		}
+		Vi.prototype = new View;
+		for ( var i in obj) {
+			Vi.prototype[i] = obj[i];
+		}
+		return Vi;
 	};
+	
 	God.prototype.controller = new Controller;
 	God.prototype.model = new Model;
 	God.prototype.view = new View;
