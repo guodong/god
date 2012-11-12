@@ -159,12 +159,12 @@
 		 */
 		exe: function(action){
 			var t = action.split('.'), controller_name = t[0], action_name = t[1];
-			var args = [];
-			for(var i=1 in arguments){
+			var args = [], i, length = arguments.length;
+			for(i=1; i<length; i++){
 				args.push(arguments[i]);
 			}
 			god.require(['controller/'+controller_name], function(ctrl){
-				var str = "ctrl." + action_name + ".call(window, args)";
+				var str = "ctrl." + action_name + ".apply(ctrl, args)";
 				eval(str);
 			});			
 			return this; // make chain
