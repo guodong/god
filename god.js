@@ -124,7 +124,8 @@
 					var url, has = false;
 					for(var j in god.paths){
 						if(deps[i].indexOf(j) === 0){
-							url = god.paths[j] + deps[i] + '.js';
+							var cut = j.length + 1;
+							url = god.paths[j] + deps[i].substring(cut) + '.js';
 							has = true;
 							break;
 						}
