@@ -6,41 +6,51 @@
  * @email gd@tongjo.com
  * @see https://github.com/tongjo/god
  * 
- * @notice the loading order is described as follows:
- * 1. execute script in loading file 
- * 2. execute callback such as onload callback and onreadystatechange callback
+ * @notice the loading order is described as follows: 1. execute script in
+ *         loading file 2. execute callback such as onload callback and
+ *         onreadystatechange callback
  * 
- * the register process is described as follows: 
- * 1. create context 
- * 2. define the callback that check if module is ready 
- * 3. parse and load dependences and bind callbacks 
- * 4. register to god.modules
+ * the register process is described as follows: 1. create context 2. define the
+ * callback that check if module is ready 3. parse and load dependences and bind
+ * callbacks 4. register to god.modules
  * 
- * @issues: there still exists some issues to be solved, here list them as follows:
- * 1. the cycle dependence, optional you can just use the god.exe method to call controller's action directly
+ * @issues: there still exists some issues to be solved, here list them as
+ *          follows: 1. the cycle dependence, optionally you can just use the
+ *          god.exe method to call controller's action directly
  */
 (function(window) {
 	/**
-	 * the global sequence number, used for require method to create a context like god.modules[3]
+	 * the global sequence number, used for require method to create a context
+	 * like god.modules[3]
 	 */
 	var seq = 1;
+	var isObject = function(source) {
+		return 'function' == typeof source
+				|| !!(source && 'object' == typeof source);
+	};
 	function God() {
-		
+
 	}
 	God.prototype = {
 		appPath: '',
+		paths: {},
 		modules: [],
 		config: function(obj) {
 			this.appPath = obj.appPath;
+			this.paths = obj.paths?obj.paths:{};
 		},
 		define: function(module_name, deps, content) {
-			// alert("define:" + module_name)
+			if (arguments.length === 2) {
+				content = deps;
+				deps = [];
+			}
+			//alert("define:" + module_name)
 			/*
 			 * the callback that check whether all dependences are ready, if
 			 * ready, execute the content and register to god.module
 			 */
 			var callback = function() {
-				// alert("callback:" + module_name + " deps:" + deps.join(' '));
+				 //alert("callback:" + module_name + " deps:" + deps.join(' '));
 				// var content = content;
 				var isReady = true;
 				for ( var i in deps) {
@@ -71,8 +81,8 @@
 						break;
 					}
 				}
-				
-				if (isReady) {
+
+				if (isReady && !god.modules[module_name].isExecuted) {//alert(module_name+' is ready');
 					var module = god.modules[module_name];
 					module.isReady = true;
 					var args = [];
@@ -81,6 +91,7 @@
 					}
 					module.content = content.apply(window, args);
 					module.isComplete = true;
+					module.isExecuted = true;
 					for ( var i in module.completeCallbacks) {
 						module.completeCallbacks[i]();
 					}
@@ -100,19 +111,27 @@
 				if (undefined === god.modules[deps[i]]) {
 					god.modules[deps[i]] = {
 						seq: seq++, // the sequence number is used for
-									// registering
+						// registering
 						// completeCallback's index
 						isReady: false,
 						isComplete: false,
 						completeCallbacks: [], // execute once all dependences
-												// are
+						// are
 						// complete and content has been
 						// registered to god.modules
 						content: null
 					};
-					var url = god.appPath + deps[i] + '.js';
+					var url, has = false;
+					for(var j in god.paths){
+						if(deps[i].indexOf(j) === 0){
+							url = god.paths[j] + deps[i] + '.js';
+							has = true;
+							break;
+						}
+					}
+					if(!has) url = god.appPath + deps[i] + '.js';
 					loadScript(url, callback);
-				} else {// alert("loaded:"+deps[i])
+				} else { //alert("loaded:"+deps[i])
 					// god.modules[deps[i]].completeCallbacks.push(callback);
 					var _seq = god.modules[deps[i]].seq;
 					if (god.modules[deps[i]].isComplete) {
@@ -144,7 +163,8 @@
 				completeCallbacks: [], // execute once all dependences are
 				// complete and content has been
 				// registered to god.modules
-				content: null
+				content: null,
+				isExecuted: false
 			};
 			return this.define(tmp_module_name, deps, callback);
 		},
@@ -153,24 +173,38 @@
 		 * one(controller name and action name) will be transfered to the action
 		 * For instance, god.exe('User.logout', {uid: 2});
 		 * 
-		 * @param action: the controller and action string
-		 *            eg: 'User.logout'
+		 * @param action:
+		 *            the controller and action string eg: 'User.logout' if the
+		 *            action name do not exist, just return the instance, and
+		 *            the init function will be execute.
 		 * @returns {God} just for chain call
 		 */
-		exe: function(action){
+		exe: function(action) {
 			var t = action.split('.'), controller_name = t[0], action_name = t[1];
 			var args = [], i, length = arguments.length;
-			for(i=1; i<length; i++){
+			for (i = 1; i < length; i++) {
 				args.push(arguments[i]);
 			}
-			god.require(['controller/'+controller_name], function(ctrl){
-				var str = "ctrl." + action_name + ".apply(ctrl, args)";
-				eval(str);
-			});			
+			god.require([ 'controller/' + controller_name ], function(ctrl) {
+				if (action_name) {
+					var str = "ctrl." + action_name + ".apply(ctrl, args)";
+					eval(str);
+				}
+
+			});
 			return this; // make chain
 		}
 	};
+	/**
+	 * here instantiation the god instance, it's the only exploded instance in
+	 * global namespace
+	 */
 	window.god = new God;
+
+	/**
+	 * create <script> tag in head, then the js in loaded script will be
+	 * execute, and the callback will be called after.
+	 */
 	function loadScript(url, callback) {// alert("create tag:"+url)
 		var head = document.getElementsByTagName('head')[0];
 		tag = document.createElement('script');
@@ -194,14 +228,6 @@
 			models: [],
 			views: []
 		},
-		isLoaded: false,
-		/**
-		 * the load function is just return the registered module instance, the
-		 * depende issue is already sattled down by extend function
-		 */
-		load: function(id) {
-			return new god.loadedControllers[id];
-		},
 		setView: function(view) {
 			this.view = view;
 		}
@@ -211,10 +237,10 @@
 		 * the initialize function will be called automatically
 		 */
 		function Ctrl() {
-			if (this.initialize){
-				this.initialize();
+			if (this.init) {
+				this.init();
 			}
-				
+
 		}
 		Ctrl.prototype = new Controller;
 		/**
@@ -228,41 +254,70 @@
 
 	function Model() {
 	}
+
 	Model.prototype = {
 		/**
 		 * the url to fetch model data, used by fetch, save, delete...
 		 */
 		baseUrl: "",
 		defaults: {},
-		load: function(model_name) {
-			return new god.loadedModules.models[model_name];
+		set: function(key, value) {
+			this.defaults[key] = value;
+		},
+		sets: function(obj) {
+			for ( var i in obj) {
+				this.set(i, obj[i]);
+			}
+		},
+		get: function(key){
+			return this.defaults[key];
+		},
+		gets: function(){
+			return this.defaults;
+		},
+		save: function(){
+			Helper.ajax({
+				url: this.baseUrl,
+				data: this.defaults,
+				method: 'POST'
+			});
 		},
 		/**
 		 * fetch data from remote server, server response should be like:
-		 * {"name": "guodong", "age": 18, "isVip": true}
+		 * {"name": "guodong", "age": 18, "isVip": true}, it uses HTTP GET
+		 * method
 		 * 
 		 * @param param
 		 *            the param transfred to server using Get Method
 		 */
-		fetch: function(param) {
-			var self = this, argstr = '?', t = [];
-			for ( var i in param) {
-				t[t.length] = i + '=' + param[i];
-			}
-			argstr += t.join('&');
-			var data = Helper.ajax({
-				url: this.baseUrl + argstr,
-				async: false
-			}, function(data) {
-				var d = JSON.parse(data);
-				for ( var i in d) {
-					self.defaults[i] = d[i];
+		fetch: function(arg) {
+			var arg = arg || {}, self=this;
+			Helper.ajax({
+				url: this.baseUrl,
+				async: false,
+				data: arg,
+				method: 'GET'
+			}, function(d) {
+				var t = JSON.parse(d);
+				data = t;
+				for ( var i in t) {
+					self.defaults[i] = t[i];
 				}
 			});
+			return data;
 		}
 	};
 	Model.prototype.extend = function(obj) {
-		function Mdl() {
+		function Mdl(args) {
+			if (isObject(args)) {
+				this.sets(args);
+			}
+			/**
+			 * if obj is number(string number or int number)
+			 */
+			if(/^(0|[1-9]\d*)$/.test(args)){
+				this.fetch({id: args});
+			}
 			if (this.init)
 				this.init();
 		}
@@ -277,35 +332,64 @@
 	}
 	View.prototype = {
 		template: '',
-		vars: [],
+		vars: {},
 		templatePath: '',
-		load: function(id) {
-			this.id = id;
-			return new god.loadedModules.views[id];
-		},
 		set: function(key, value) {
 			this.vars[key] = value;
 		},
 		/**
 		 * render the view page and replace the <%=..%> with vars
 		 * 
-		 * @param dom: the id of dom
+		 * @param dom:
+		 *            the id of dom
 		 */
 		render: function(dom) {
+			var self = this;
 			if (this.templatePath === '')
 				this.templatePath = this.id;
-			var url = god.appPath + 'view/template/' + this.templatePath
-					+ ".js";
+			var url = god.appPath + 'template/' + this.templatePath + ".js";
 			this.template = Helper.load(url);
-			var self = this, viewVarsRegExp = /<%=\s*(.*)\s*%>/g;
+			/*var self = this, viewVarsRegExp = /<%=\s*(.*)\s*%>/g;
 			this.template.replace(viewVarsRegExp, function(match, data) {
 				var str = "self.vars." + data;
 				var value = eval(str);
 				self.template = self.template.replace(match, value);
-			});
-			document.getElementById(dom).innerHTML = self.template;
-			if (this.initRander)
-				this.initRander();
+			});*/
+			var cache = {};
+
+			var tmpl = function(str, data) {
+				// Figure out if we're getting a template, or if we need to
+				// load the template - and be sure to cache the result.
+				var fn = !/\W/.test(str) ? cache[str] = cache[str]
+						|| tmpl(document.getElementById(str).innerHTML) :
+
+				// Generate a reusable function that will serve as a template
+				// generator (and which will be cached).
+				new Function("obj",
+						"var p=[],print=function(){p.push.apply(p,arguments);};"
+								+
+								// Introduce the data as local variables using
+								// with(){}
+								"with(obj){p.push('" +
+						        
+						        // Convert the template into pure JavaScript
+						        str
+						          .replace(/[\r\t\n]/g, " ")
+						          .split("<%").join("\t")
+						          .replace(/((^|%>)[^\t]*)'/g, "$1\r")
+						          .replace(/\t=(.*?)%>/g, "',$1,'")
+						          .split("\t").join("');")
+						          .split("%>").join("p.push('")
+						          .split("\r").join("\\'")
+						      + "');}return p.join('');");
+						    
+						    // Provide some basic currying to the user
+						    return data ? fn( data ) : fn;
+			};
+			//document.getElementById(dom).innerHTML = self.template;
+			document.getElementById(dom).innerHTML = tmpl(this.template, this.vars);
+			if (this.initRender)
+				this.initRender();
 		}
 	};
 
@@ -320,16 +404,18 @@
 		}
 		return Vi;
 	};
-	
+
 	God.prototype.controller = new Controller;
 	God.prototype.model = new Model;
 	God.prototype.view = new View;
 
 	var Helper = {
 		/**
-		 * just load content without executing it in sync way. Used for View  templates
+		 * just load content without executing it in sync way. Used for View
+		 * templates
 		 * 
-		 * @notice	this method only can be used for same domain loading, thus determine the View templates must be load under app domain
+		 * @notice this method only can be used for same domain loading, thus
+		 *         determine the View templates must be load under app domain
 		 */
 		load: function(path) {
 			return this.ajax({
@@ -339,9 +425,16 @@
 		},
 
 		ajax: function(params, callback) {
-			var url = params.url, method = (params.method && params.method
-					.toUpperCase() === "POST")
-					|| 'GET', async = (params.async === false) ? false : true;
+			var url = params.url
+			var method = params.method?params.method.toUpperCase():'GET', async = (params.async === false) ? false : true;
+			var t = [], data = params.data || {};
+			for ( var i in data) {
+				t[t.length] = i + '=' + data[i];
+			}
+			var argstr = t.join('&');
+			if(method === 'GET' && argstr !== ''){
+				url += '/?'+argstr;
+			}
 			var xmlHttp;
 			if (window.XMLHttpRequest) {
 				xmlHttp = new XMLHttpRequest();
@@ -349,7 +442,13 @@
 				xmlHttp = new ActiveXObject("Microsoft.XMLHTTP");
 			}
 			xmlHttp.open(method, url, async);
-			xmlHttp.send(null);
+			if(method === 'GET'){
+				xmlHttp.send(null);
+			}else{
+				xmlHttp.setRequestHeader("Content-Type","application/x-www-form-urlencoded");
+
+				xmlHttp.send(argstr);
+			}
 			if (undefined !== callback) {
 				if (async) {
 					xmlHttp.onreadystatechange = function() {

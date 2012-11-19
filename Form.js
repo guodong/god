@@ -21,13 +21,14 @@ define(['jquery', 'god/form/Element'], function($, Element){
 			if(onSubmit()) submit(submitCallback);
 		});
 		function submit(callback){
+			if(!onSubmit()) return;
 			if(!isValid()){
 				invalidCallback();
 				return false;
 			}
 			invalidCallback();
 			if(isAjax){
-				submitLoading();	//start loading function
+				//submitLoading();	//start loading function
 				$.ajax({
 					url: url,
 					type: method,
